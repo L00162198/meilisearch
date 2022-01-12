@@ -22,6 +22,7 @@ pub use test::MockIndex as Index;
 /// code for unit testing, in places where an index would normally be used.
 #[cfg(test)]
 pub mod test {
+    use meilisearch_auth::IndexSearchRules;
     use std::path::Path;
     use std::path::PathBuf;
     use std::sync::Arc;
@@ -140,9 +141,13 @@ pub mod test {
             }
         }
 
-        pub fn perform_search(&self, query: SearchQuery) -> Result<SearchResult> {
+        pub fn perform_search(
+            &self,
+            query: SearchQuery,
+            policy: IndexSearchRules,
+        ) -> Result<SearchResult> {
             match self {
-                MockIndex::Real(index) => index.perform_search(query),
+                MockIndex::Real(index) => index.perform_search(query, policy),
                 MockIndex::Mock(m) => unsafe { m.get("perform_search").call(query) },
             }
         }

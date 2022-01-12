@@ -115,9 +115,17 @@ pub async fn search_with_url_query(
     debug!("called with params: {:?}", params);
     let query: SearchQuery = params.into_inner().into();
 
+    let index_uid = path.into_inner();
+    // Tenant token policy.
+    let policy = meilisearch
+        .filters()
+        .search_rules
+        .get_index_policy(&index_uid)
+        .unwrap_or_default();
+
     let mut aggregate = SearchAggregator::from_query(&query, &req);
 
-    let search_result = meilisearch.search(path.into_inner(), query).await;
+    let search_result = meilisearch.search(index_uid, query, policy).await;
     if let Ok(ref search_result) = search_result {
         aggregate.succeed(search_result);
     }
@@ -143,9 +151,17 @@ pub async fn search_with_post(
     let query = params.into_inner();
     debug!("search called with params: {:?}", query);
 
+    let index_uid = path.into_inner();
+    // Tenant token policy.
+    let policy = meilisearch
+        .filters()
+        .search_rules
+        .get_index_policy(&index_uid)
+        .unwrap_or_default();
+
     let mut aggregate = SearchAggregator::from_query(&query, &req);
 
-    let search_result = meilisearch.search(path.into_inner(), query).await;
+    let search_result = meilisearch.search(index_uid, query, policy).await;
     if let Ok(ref search_result) = search_result {
         aggregate.succeed(search_result);
     }
