@@ -17,6 +17,7 @@ use actix_web::error::JsonPayloadError;
 use analytics::Analytics;
 use error::PayloadError;
 use http::header::CONTENT_TYPE;
+use once_cell::sync::OnceCell;
 pub use option::Opt;
 
 use actix_web::{web, HttpRequest};
@@ -25,8 +26,14 @@ use extractors::payload::PayloadConfig;
 use meilisearch_auth::AuthController;
 use meilisearch_lib::MeiliSearch;
 
+pub static AUTOBATCHING_ENABLED: OnceCell<bool> = OnceCell::new();
+
 pub fn setup_meilisearch(opt: &Opt) -> anyhow::Result<MeiliSearch> {
     let mut meilisearch = MeiliSearch::builder();
+
+    // enable autobatching?
+    let _ = AUTOBATCHING_ENABLED.set(opt.scheduler_options.enable_autobatching);
+
     meilisearch
         .set_max_index_size(opt.max_index_size.get_bytes() as usize)
         .set_max_task_store_size(opt.max_task_db_size.get_bytes() as usize)
@@ -48,7 +55,11 @@ pub fn setup_meilisearch(opt: &Opt) -> anyhow::Result<MeiliSearch> {
         meilisearch.set_schedule_snapshot();
     }
 
-    meilisearch.build(opt.db_path.clone(), opt.indexer_options.clone())
+    meilisearch.build(
+        opt.db_path.clone(),
+        opt.indexer_options.clone(),
+        opt.scheduler_options.clone(),
+    )
 }
 
 pub fn configure_data(
