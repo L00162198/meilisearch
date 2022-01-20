@@ -11,10 +11,8 @@ use super::scheduler::Pending;
 use super::{Scheduler, TaskPerformer};
 use crate::tasks::task::TaskEvent;
 
-/// The scheduler roles is to perform batches of tasks one at a time. It will monitor the TaskStore
-/// for new tasks, put them in a batch, and process the batch as soon as possible.
-///
-/// When a batch is currently processing, the scheduler is just waiting.
+/// The update loop sequentially performs batches of updates by asking the scheduler for a batch,
+/// and handing it to the `TaskPerformer`.
 pub struct UpdateLoop<P: TaskPerformer> {
     scheduler: Arc<RwLock<Scheduler>>,
     performer: Arc<P>,
@@ -68,7 +66,6 @@ where
                     task.events.push(TaskEvent::Processing(Utc::now()));
                 }
 
-                // the jobs are ignored
                 batch.tasks = {
                     self.scheduler
                         .read()
@@ -93,10 +90,10 @@ where
         Ok(())
     }
 
-    /// Handles the result from a batch processing.
+    /// Handles the result from a processed batch.
     ///
-    /// When a task is processed, the result of the processing is pushed to its event list. The
-    /// handle batch result make sure that the new state is save into its store.
+    /// When a task is processed, the result of the process is pushed to its event list. The
+    /// `handle_batch_result` make sure that the new state is saved to the store.
     /// The tasks are then removed from the processing queue.
     async fn handle_batch_result(&self, mut batch: Batch) -> Result<()> {
         let mut scheduler = self.scheduler.write().await;

@@ -251,8 +251,8 @@ impl Index {
         );
 
         for content_uuid in contents.into_iter() {
-            let content_file = file_store.get_update(content_uuid).unwrap();
-            let reader = DocumentBatchReader::from_reader(content_file).unwrap();
+            let content_file = file_store.get_update(content_uuid)?;
+            let reader = DocumentBatchReader::from_reader(content_file)?;
             builder.add_documents(reader)?;
         }
 

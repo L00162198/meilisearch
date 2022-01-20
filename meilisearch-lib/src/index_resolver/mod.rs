@@ -225,6 +225,7 @@ where
 
                 // If the index doesn't exist and we are not allowed to create it with the first
                 // task, we must fails the whole batch.
+                let now = Utc::now();
                 let index = match index {
                     Ok(index) => index,
                     Err(e) => {
@@ -232,7 +233,7 @@ where
                         for task in batch.tasks.iter_mut() {
                             task.events.push(TaskEvent::Failed {
                                 error: error.clone(),
-                                timestamp: Utc::now(),
+                                timestamp: now,
                             });
                         }
                         return batch;

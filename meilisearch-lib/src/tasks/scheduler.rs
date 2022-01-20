@@ -26,7 +26,7 @@ enum TaskType {
     Other,
 }
 
-/// Two task types are equal if they hace the same type
+/// Two tasks are equal if they have the same type.
 impl PartialEq for TaskType {
     fn eq(&self, other: &Self) -> bool {
         matches!(
@@ -117,7 +117,7 @@ impl PartialOrd for TaskList {
 
 #[derive(Default)]
 struct TaskQueue {
-    /// maps index uids to their TaskList, for quick access
+    /// Maps index uids to their TaskList, for quick access
     index_tasks: HashMap<String, Arc<AtomicRefCell<TaskList>>>,
     /// A queue that orders TaskList by the priority of their fist update
     queue: BinaryHeap<Arc<AtomicRefCell<TaskList>>>,
@@ -148,14 +148,14 @@ impl TaskQueue {
 
         match self.index_tasks.entry(uid) {
             Entry::Occupied(entry) => {
-                // task list already exists for this index, all we have to to is to push the new
+                // A task list already exists for this index, all we have to to is to push the new
                 // update to the end of the list. This won't change the order since ids are
                 // monotically increasing.
                 let mut list = entry.get().borrow_mut();
 
-                // in reality, we only need the first element to be lower than the one we want to
+                // We only need the first element to be lower than the one we want to
                 // insert to preserve the order in the queue.
-                assert!(list.peek().map(|old_id| id > old_id.id).unwrap_or(true));
+                assert!(list.peek().map(|old_id| id >= old_id.id).unwrap_or(true));
 
                 list.push(task);
             }
@@ -169,7 +169,7 @@ impl TaskQueue {
         }
     }
 
-    /// passes a context with a view to the task list of the next index to schedule. It is
+    /// Passes a context with a view to the task list of the next index to schedule. It is
     /// guaranteed that the first id from task list will be the lowest pending task id.
     fn head_mut<R>(&mut self, mut f: impl FnMut(&mut TaskList) -> R) -> Option<R> {
         let head = self.queue.pop()?;
@@ -200,7 +200,7 @@ pub struct Scheduler {
     processing: Vec<TaskId>,
     next_fetched_task_id: TaskId,
     config: SchedulerConfig,
-    /// notify the update loop that a new task was received
+    /// Notifies the update loop that a new task was received
     notifier: watch::Sender<()>,
 }
 
@@ -217,7 +217,7 @@ impl Scheduler {
 
         let debounce_time = config.debounce_duration_sec;
 
-        // disable autobatching
+        // Disable autobatching
         if !config.enable_autobatching {
             config.max_batch_size = Some(1);
         }
@@ -256,8 +256,7 @@ impl Scheduler {
         self.tasks.insert(task);
     }
 
-    /// Clears the processing list, this method should be called when the processing of a batch is
-    /// finished.
+    /// Clears the processing list, this method should be called when the processing of a batch is finished.
     pub fn finish(&mut self) {
         self.processing.clear();
     }
@@ -306,8 +305,9 @@ impl Scheduler {
     }
 
     async fn fetch_pending_tasks(&mut self) -> Result<()> {
-        // We must NEVER re-enqueue an already porocessed task! it's content uuid would point to an
-        // an unextisting file.
+        // We must NEVER re-enqueue an already processed task! It's content uuid would point to an unexisting file.
+        //
+        // TODO(marin): This may lead to slower startup times, and should be optimized in the future.
         let mut filter = TaskFilter::default();
         filter.filter_fn(|task| !task.is_finished());
 
@@ -315,7 +315,7 @@ impl Scheduler {
             .list_tasks(Some(self.next_fetched_task_id), Some(filter), None)
             .await?
             .into_iter()
-            // the tasks arrive in reverse order, and we need to insert them in order.
+            // The tasks arrive in reverse order, and we need to insert them in order.
             .rev()
             .for_each(|t| {
                 self.next_fetched_task_id = t.id + 1;
@@ -325,7 +325,7 @@ impl Scheduler {
         Ok(())
     }
 
-    /// Prepares the next batch, and set `processing` to the ids in that batch.
+    /// Prepare the next batch, and set `processing` to the ids in that batch.
     pub async fn prepare(&mut self) -> Result<Pending> {
         // If there is a job to process, do it first.
         if let Some(job) = self.jobs.pop_front() {
@@ -333,10 +333,9 @@ impl Scheduler {
             self.notifiy_if_not_empty();
             return Ok(Pending::Job(job));
         }
-        // try to fill the queue with pending tasks.
+        // Try to fill the queue with pending tasks.
         self.fetch_pending_tasks().await?;
 
-        self.processing.clear();
         make_batch(&mut self.tasks, &mut self.processing, &self.config);
 
         log::debug!("prepared batch with {} tasks", self.processing.len());
@@ -385,8 +384,7 @@ pub enum Pending {
 }
 
 fn make_batch(tasks: &mut TaskQueue, processing: &mut Vec<TaskId>, config: &SchedulerConfig) {
-    // the processing list MUST be empty when it is handed to us.
-    assert!(processing.is_empty());
+    processing.clear();
 
     let mut doc_count = 0;
     tasks.head_mut(|list| match list.peek().copied() {
@@ -400,18 +398,17 @@ fn make_batch(tasks: &mut TaskQueue, processing: &mut Vec<TaskId>, config: &Sche
         Some(PendingTask { kind, .. }) => loop {
             match list.peek() {
                 Some(pending) if pending.kind == kind => {
-                    // we always need to process at least one task for the scheduler to make
-                    // progress.
+                    // We always need to process at least one task for the scheduler to make progress.
                     if processing.len() >= config.max_batch_size.unwrap_or(usize::MAX).max(1) {
                         break;
                     }
                     let pending = list.pop().unwrap();
                     processing.push(pending.id);
 
-                    // add the number of documents to count if we are scheduling document additions and
-                    // stop adding if we already have enough. We check that bound only
-                    // after adding the task to the batch, so a single update is always
-                    // processed even if it has too many documents in it.
+                    // We add the number of documents to the count if we are scheduling document additions and
+                    // stop adding if we already have enough.
+                    //
+                    // We check that bound only after adding the current task to the batch, so that a batch contains at least one task.
                     match pending.kind {
                         TaskType::DocumentUpdate { number }
                         | TaskType::DocumentAddition { number } => {

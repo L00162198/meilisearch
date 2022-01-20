@@ -9,7 +9,7 @@ pub mod helpers;
 pub mod option;
 pub mod routes;
 
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 use std::time::Duration;
 
 use crate::error::MeilisearchHttpError;
@@ -17,7 +17,6 @@ use actix_web::error::JsonPayloadError;
 use analytics::Analytics;
 use error::PayloadError;
 use http::header::CONTENT_TYPE;
-use once_cell::sync::OnceCell;
 pub use option::Opt;
 
 use actix_web::{web, HttpRequest};
@@ -26,13 +25,16 @@ use extractors::payload::PayloadConfig;
 use meilisearch_auth::AuthController;
 use meilisearch_lib::MeiliSearch;
 
-pub static AUTOBATCHING_ENABLED: OnceCell<bool> = OnceCell::new();
+pub static AUTOBATCHING_ENABLED: AtomicBool = AtomicBool::new(false);
 
 pub fn setup_meilisearch(opt: &Opt) -> anyhow::Result<MeiliSearch> {
     let mut meilisearch = MeiliSearch::builder();
 
     // enable autobatching?
-    let _ = AUTOBATCHING_ENABLED.set(opt.scheduler_options.enable_autobatching);
+    let _ = AUTOBATCHING_ENABLED.store(
+        opt.scheduler_options.enable_autobatching,
+        std::sync::atomic::Ordering::Relaxed,
+    );
 
     meilisearch
         .set_max_index_size(opt.max_index_size.get_bytes() as usize)

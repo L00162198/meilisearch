@@ -982,7 +982,7 @@ dependencies = [
 [[package]]
 name = "filter-parser"
 version = "0.1.0"
-source = "git+https://github.com/meilisearch/milli.git?rev=5b24e15e73a4ffec440dab5dee7e5c70c9eedd48#5b24e15e73a4ffec440dab5dee7e5c70c9eedd48"
+source = "git+https://github.com/meilisearch/milli.git?tag=v0.22.0#9f2ff71581ec1e0a54a3c9be030537705c27ec2d"
 dependencies = [
  "nom",
  "nom_locate",
@@ -1826,8 +1826,8 @@ dependencies = [
 
 [[package]]
 name = "meilisearch-tokenizer"
-version = "0.2.6"
-source = "git+https://github.com/meilisearch/tokenizer.git?tag=v0.2.6#a69bb0cf442ea6357464d71bdf5d28273e5153ba"
+version = "0.2.7"
+source = "git+https://github.com/meilisearch/tokenizer.git?tag=v0.2.7#e14f64f2482d8f57e9aae8dc37dcb1469099f6f3"
 dependencies = [
  "character_converter",
  "cow-utils",
@@ -1866,8 +1866,8 @@ dependencies = [
 
 [[package]]
 name = "milli"
-version = "0.21.0"
-source = "git+https://github.com/meilisearch/milli.git?rev=5b24e15e73a4ffec440dab5dee7e5c70c9eedd48#5b24e15e73a4ffec440dab5dee7e5c70c9eedd48"
+version = "0.22.0"
+source = "git+https://github.com/meilisearch/milli.git?tag=v0.22.0#9f2ff71581ec1e0a54a3c9be030537705c27ec2d"
 dependencies = [
  "bimap",
  "bincode",
