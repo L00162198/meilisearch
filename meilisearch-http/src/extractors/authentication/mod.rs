@@ -141,12 +141,12 @@ pub mod policies {
                 return Some(AuthFilter::default());
             }
 
-            if token.contains('.') {
-                // Tenant token
-                return ActionPolicy::<A>::authenticate_tenant_token(auth, token, index);
+            // Tenant token
+            if let Some(filters) = ActionPolicy::<A>::authenticate_tenant_token(&auth, token, index)
+            {
+                return Some(filters);
             } else if let Some(action) = Action::from_repr(A) {
                 // API key
-                let index = index.map(|i| i.as_bytes());
                 if let Ok(true) = auth.authenticate(token.as_bytes(), action, index) {
                     return auth.get_key_filters(token, None).ok();
                 }
@@ -158,7 +158,7 @@ pub mod policies {
 
     impl<const A: u8> ActionPolicy<A> {
         fn authenticate_tenant_token(
-            auth: AuthController,
+            auth: &AuthController,
             token: &str,
             index: Option<&str>,
         ) -> Option<AuthFilter> {
@@ -188,7 +188,6 @@ pub mod policies {
                 }
             }
 
-            let index = index.map(|i| i.as_bytes());
             // check if parent key is authorized to do the action.
             if auth
                 .is_key_authorized(api_key_prefix.as_bytes(), Action::Search, index)

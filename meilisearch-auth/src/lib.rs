@@ -132,7 +132,7 @@ impl AuthController {
         &self,
         key: &[u8],
         action: Action,
-        index: Option<&[u8]>,
+        index: Option<&str>,
     ) -> Result<bool> {
         match self
             .store
@@ -140,7 +140,10 @@ impl AuthController {
             .get_expiration_date(key, action, None)?
             .or(match index {
                 // else check if the key has access to the requested index.
-                Some(index) => self.store.get_expiration_date(key, action, Some(index))?,
+                Some(index) => {
+                    self.store
+                        .get_expiration_date(key, action, Some(index.as_bytes()))?
+                }
                 // or to any index if no index has been requested.
                 None => self.store.prefix_first_expiration_date(key, action)?,
             }) {
@@ -168,7 +171,7 @@ impl AuthController {
 
     /// Check if the provided key is valid
     /// and is authorized to make a specific action.
-    pub fn authenticate(&self, key: &[u8], action: Action, index: Option<&[u8]>) -> Result<bool> {
+    pub fn authenticate(&self, key: &[u8], action: Action, index: Option<&str>) -> Result<bool> {
         if self.is_key_authorized(key, action, index)? {
             self.is_key_valid(key)
         } else {
@@ -191,6 +194,7 @@ impl Default for AuthFilter {
     }
 }
 
+/// Transparent wrapper around a list of allowed indexes with the search rules to apply for each.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum SearchRules {
@@ -214,10 +218,13 @@ impl SearchRules {
 
     pub fn get_index_policy(&self, index: &str) -> Option<IndexSearchRules> {
         match self {
-            Self::Set(set) if set.contains("*") || set.contains(index) => {
-                Some(IndexSearchRules::default())
+            Self::Set(set) => {
+                if set.contains("*") || set.contains(index) {
+                    Some(IndexSearchRules::default())
+                } else {
+                    None
+                }
             }
-            Self::Set(_) => None,
             Self::Map(map) => map
                 .get(index)
                 .or_else(|| map.get("*"))
@@ -242,15 +249,18 @@ impl IntoIterator for SearchRules {
     }
 }
 
+/// Contains the rules to apply on the top of the search query for a specific index.
+///
+/// filter: search filter to apply in addition to query filters.
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct IndexSearchRules {
     pub filter: Option<serde_json::Value>,
 }
 
-fn generate_key(master_key: &[u8], uid: &str) -> String {
-    let key = [uid.as_bytes(), master_key].concat();
+fn generate_key(master_key: &[u8], keyid: &str) -> String {
+    let key = [keyid.as_bytes(), master_key].concat();
     let sha = Sha256::digest(&key);
-    format!("{}{:x}", uid, sha)
+    format!("{}{:x}", keyid, sha)
 }
 
 fn generate_default_keys(store: &HeedAuthStore) -> Result<()> {
