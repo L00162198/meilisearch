@@ -1,3 +1,5 @@
+use meilisearch_auth::IndexSearchRules;
+use milli::FilterCondition;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::str::FromStr;
 use std::time::Instant;
@@ -87,7 +89,11 @@ struct FormatOptions {
 }
 
 impl Index {
-    pub fn perform_search(&self, query: SearchQuery) -> Result<SearchResult> {
+    pub fn perform_search(
+        &self,
+        query: SearchQuery,
+        policy: IndexSearchRules,
+    ) -> Result<SearchResult> {
         let before_search = Instant::now();
         let rtxn = self.read_txn()?;
 
@@ -100,10 +106,28 @@ impl Index {
         search.limit(query.limit);
         search.offset(query.offset.unwrap_or_default());
 
-        if let Some(ref filter) = query.filter {
-            if let Some(facets) = parse_filter(filter)? {
-                search.filter(facets);
-            }
+        let mut filter = query
+            .filter
+            .as_ref()
+            .map(parse_filter)
+            .transpose()?
+            .flatten();
+
+        if let Some(Some(f)) = policy.filter.as_ref().map(parse_filter).transpose()? {
+            filter = match filter.take() {
+                Some(filter) => {
+                    let fc = FilterCondition::And(
+                        Box::new(FilterCondition::from(f)),
+                        Box::new(FilterCondition::from(filter)),
+                    );
+                    Some(Filter::from(fc))
+                }
+                None => Some(f),
+            };
+        }
+
+        if let Some(filter) = filter {
+            search.filter(filter);
         }
 
         if let Some(ref sort) = query.sort {
